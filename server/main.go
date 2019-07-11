@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-var jobsChannel = make(chan *Player, 100)
-
 func matchWorker(jobs chan *Player, parties *[]*Party) {
 	for player := range jobs {
 		// try to find a party for the player
@@ -40,7 +38,7 @@ func matchWorker(jobs chan *Player, parties *[]*Party) {
 				if p.foundParty {
 					return
 				}
-				p.delta = player.delta + 2
+				p.delta = player.delta * 2
 				p.party.removePlayer(player)
 				jobs <- p
 			}(player)
@@ -84,22 +82,19 @@ func randSeq(n int) string {
 	return string(b)
 }
 
-func addPlayerToQueue(p *Player) {
-	//fmt.Println("Adding player ", p, " to queue")
-	jobsChannel <- p
-}
-
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	numWorkers := 4
 	parties := make([]*Party, 0)
+	var jobsChannel = make(chan *Player, 100)
 
 	for w := 0; w < numWorkers; w++ {
 		go matchWorker(jobsChannel, &parties)
 	}
 
-	startHttpServer()
+	httpServer := MHttpServer{jobsChannel}
+	httpServer.start()
 }
 
 func NewParty() Party {

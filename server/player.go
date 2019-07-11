@@ -21,10 +21,9 @@ func NewPlayer(name string, skill int) Player {
 }
 
 func (player Player) findParty(parties []*Party) *Party {
-	delta := player.delta
 	var goodParties []*Party
 	for _, party := range parties {
-		if isPartyGoodForPlayer(player, party, delta) {
+		if isPartyGoodForPlayer(player, party) {
 			goodParties = append(goodParties, party)
 		}
 	}
@@ -56,10 +55,10 @@ func findBestParty(parties []*Party) *Party {
 	return bestParty
 }
 
-func isPartyGoodForPlayer(player Player, party *Party, delta int) bool {
+func isPartyGoodForPlayer(player Player, party *Party) bool {
 	ps := player.skill
 	as := party.avgSkill
-	d := delta
+	d := player.delta
 
 	return ps >= (as-d) && ps <= (as+d)
 }
