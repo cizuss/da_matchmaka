@@ -76,7 +76,8 @@ func (server MHttpServer) handleEnqueuePlayer(w http.ResponseWriter, r *http.Req
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&req)
 		if err != nil {
-			panic(err)
+			fmt.Println("Error in handling enqueue player ", err)
+			return
 		}
 		player := req.toPlayer()
 		server.addPlayerToQueue(&player)

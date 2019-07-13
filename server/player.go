@@ -28,13 +28,19 @@ func (player *Player) findParty(parties []*Party) (*Party, error) {
 		return nil, errors.New("player already searching for party...")
 	}
 	player.inProcess = true
+	goodParties := player.getGoodParties(parties)
+	return findBestParty(goodParties), nil
+}
+
+// Given a list of parties, keep only the ones that are appropriate for the player to join
+func (player *Player) getGoodParties(parties []*Party) []*Party {
 	var goodParties []*Party
 	for _, party := range parties {
 		if isPartyGoodForPlayer(*player, party) {
 			goodParties = append(goodParties, party)
 		}
 	}
-	return findBestParty(goodParties), nil
+	return goodParties
 }
 
 func findBestParty(parties []*Party) *Party {

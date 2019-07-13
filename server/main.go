@@ -32,12 +32,8 @@ func matchWorker(jobs chan *Player, parties *[]*Party, partiesChan chan *Party) 
 			party.addPlayer(player)
 		}
 		if len(party.players) == 8 {
-			party.mux.Lock()
-			for _, p := range party.players {
-				p.foundParty = true
-			}
-			party.mux.Unlock()
-			handleFoundParty(*party)
+			party.markAllPlayersAsHaveFoundParty()
+			fmt.Println("Formed the following party : ", party)
 			partiesChan <- party
 			removeParty(parties, party)
 		} else {
@@ -69,13 +65,6 @@ func addParty(parties *[]*Party, party *Party) {
 	*parties = append(*parties, party)
 }
 
-func handleFoundParty(party Party) {
-	fmt.Println("Found party for the following players:")
-	for _, p := range party.players {
-		fmt.Printf("%v ", p)
-	}
-}
-
 func removeParty(parties *[]*Party, party *Party) {
 	result := make([]*Party, 0)
 	for _, p := range *parties {
@@ -102,15 +91,14 @@ func main() {
 	parties := make([]*Party, 0)
 	var jobsChannel = make(chan *Player, 100)
 	partiesChan := make(chan *Party, 100)
-
-	for w := 0; w < numWorkers; w++ {
-		go matchWorker(jobsChannel, &parties, partiesChan)
-	}
-
 	connectionsMap := map[string]*websocket.Conn{}
 	connections := map[*websocket.Conn]bool{}
 	upgrader := websocket.Upgrader{}
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+
+	for w := 0; w < numWorkers; w++ {
+		go matchWorker(jobsChannel, &parties, partiesChan)
+	}
 
 	httpServer := MHttpServer{jobsChannel, partiesChan, connectionsMap, connections, upgrader}
 	httpServer.start()

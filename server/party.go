@@ -55,6 +55,7 @@ func (party *Party) removePlayer(player *Player) {
 func (party *Party) isEmpty() bool {
 	return len(party.players) == 0
 }
+
 func (party *Party) computeAvgSkill() {
 	if party.isEmpty() {
 		party.avgSkill = 0
@@ -65,4 +66,12 @@ func (party *Party) computeAvgSkill() {
 		sum += p.skill
 	}
 	party.avgSkill = sum / len(party.players)
+}
+
+func (party *Party) markAllPlayersAsHaveFoundParty() {
+	party.mux.Lock()
+	for _, p := range party.players {
+		p.foundParty = true
+	}
+	party.mux.Unlock()
 }
