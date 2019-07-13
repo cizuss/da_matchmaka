@@ -1,33 +1,40 @@
 package main
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
 )
 
 type Player struct {
+	mux        sync.Mutex
 	name       string
 	skill      int
 	timestamp  int64
 	foundParty bool
 	delta      int
 	party      *Party
-	mux        sync.Mutex
+	inParty    bool
+	inProcess  bool
 }
 
 func NewPlayer(name string, skill int) Player {
-	return Player{name: name, skill: skill, timestamp: time.Now().Unix(), foundParty: false, delta: 2, party: nil}
+	return Player{name: name, skill: skill, timestamp: time.Now().Unix(), foundParty: false, delta: 2, party: nil, inParty: false, inProcess: false}
 }
 
-func (player Player) findParty(parties []*Party) *Party {
+func (player *Player) findParty(parties []*Party) (*Party, error) {
+	if player.inProcess {
+		return nil, errors.New("player already searching for party...")
+	}
+	player.inProcess = true
 	var goodParties []*Party
 	for _, party := range parties {
-		if isPartyGoodForPlayer(player, party) {
+		if isPartyGoodForPlayer(*player, party) {
 			goodParties = append(goodParties, party)
 		}
 	}
-	return findBestParty(goodParties)
+	return findBestParty(goodParties), nil
 }
 
 func findBestParty(parties []*Party) *Party {

@@ -6,14 +6,23 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
-func matchWorker(jobs chan *Player, parties *[]*Party) {
+func matchWorker(jobs chan *Player, parties *[]*Party, partiesChan chan *Party) {
 	for player := range jobs {
+		if player.foundParty || player.inProcess {
+			continue
+		}
 		// try to find a party for the player
-		//fmt.Printf("Trying to find party for %v\n", player)
-		party := player.findParty(*parties)
+		party, err := player.findParty(*parties)
+		if err != nil {
+			fmt.Println("Player already searching for party by another thread...")
+			continue
+		}
 		if party == nil {
 			p := NewParty()
 			party = &p
@@ -23,27 +32,37 @@ func matchWorker(jobs chan *Player, parties *[]*Party) {
 			party.addPlayer(player)
 		}
 		if len(party.players) == 8 {
-			handleFoundParty(*party)
+			party.mux.Lock()
 			for _, p := range party.players {
-				p.mux.Lock()
-				p.party = nil
 				p.foundParty = true
-				p.mux.Unlock()
 			}
+			party.mux.Unlock()
+			handleFoundParty(*party)
+			partiesChan <- party
 			removeParty(parties, party)
 		} else {
-			timer := time.NewTimer(3 * time.Second)
-			go func(p *Player) {
-				<-timer.C
-				if p.foundParty {
-					return
-				}
-				p.delta = player.delta * 2
-				p.party.removePlayer(player)
-				jobs <- p
-			}(player)
+			addTimerToReenqueuePlayer(player, jobs)
 		}
 	}
+}
+
+func addTimerToReenqueuePlayer(p *Player, jobs chan *Player) {
+	timer := time.NewTimer(3 * time.Second)
+	go func() {
+		<-timer.C
+		p.mux.Lock()
+		if !p.foundParty {
+			p.party.removePlayer(p)
+			p.delta = p.delta * 2
+			p.party = nil
+			p.inParty = false
+			p.inProcess = false
+			p.mux.Unlock()
+			jobs <- p
+		} else {
+			p.mux.Unlock()
+		}
+	}()
 }
 
 func addParty(parties *[]*Party, party *Party) {
@@ -54,12 +73,6 @@ func handleFoundParty(party Party) {
 	fmt.Println("Found party for the following players:")
 	for _, p := range party.players {
 		fmt.Printf("%v ", p)
-	}
-	now := time.Now().Unix()
-	var sum int64 = 0
-	for _, p := range party.players {
-		sum += now - p.timestamp
-		fmt.Printf("Player %s found a party in %d seconds\n", p.name, now-p.timestamp)
 	}
 }
 
@@ -88,15 +101,17 @@ func main() {
 	numWorkers := 4
 	parties := make([]*Party, 0)
 	var jobsChannel = make(chan *Player, 100)
+	partiesChan := make(chan *Party, 100)
 
 	for w := 0; w < numWorkers; w++ {
-		go matchWorker(jobsChannel, &parties)
+		go matchWorker(jobsChannel, &parties, partiesChan)
 	}
 
-	httpServer := MHttpServer{jobsChannel}
-	httpServer.start()
-}
+	connectionsMap := map[string]*websocket.Conn{}
+	connections := map[*websocket.Conn]bool{}
+	upgrader := websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
-func NewParty() Party {
-	return Party{players: []*Player{}, avgSkill: 0, createdAt: time.Now().Unix()}
+	httpServer := MHttpServer{jobsChannel, partiesChan, connectionsMap, connections, upgrader}
+	httpServer.start()
 }

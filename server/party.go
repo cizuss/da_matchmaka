@@ -2,47 +2,54 @@ package main
 
 import (
 	"sync"
+	"time"
 )
 
 type Party struct {
+	mux       sync.Mutex
+	id        string
 	players   []*Player
 	avgSkill  int
 	createdAt int64
-	mux       sync.Mutex
+}
+
+/*
+	NewParty returns a new Party instance
+*/
+func NewParty() Party {
+	return Party{id: randSeq(10), players: []*Player{}, avgSkill: 0, createdAt: time.Now().Unix()}
 }
 
 func (party *Party) addPlayer(player *Player) {
-	party.mux.Lock()
-	defer party.mux.Unlock()
-	for _, p := range party.players {
-		if p.name == player.name {
-			return
-		}
-	}
-	party.players = append(party.players, player)
-	party.computeAvgSkill()
-	player.party = party
-}
-
-func (party *Party) removePlayer(player *Player) {
 	if party == nil {
 		return
 	}
+	// avoid case where concurrent threads find multiple parties for the same player
+	player.mux.Lock()
+	if player.inParty || player.foundParty {
+		player.mux.Unlock()
+		return
+	}
+	player.party = party
+	player.inParty = true
+	player.mux.Unlock()
 	party.mux.Lock()
 	defer party.mux.Unlock()
-	idx := -1
-	for i, p := range party.players {
-		if p.name == player.name {
-			idx = i
-			break
+	party.players = append(party.players, player)
+	party.computeAvgSkill()
+}
+
+func (party *Party) removePlayer(player *Player) {
+	result := make([]*Player, 0)
+	party.mux.Lock()
+	defer party.mux.Unlock()
+	for _, p := range party.players {
+		if p.name != player.name {
+			result = append(result, p)
 		}
 	}
-	if idx != -1 {
-		party.players[idx] = party.players[len(party.players)-1]
-		party.players = party.players[:len(party.players)-1]
-	}
+	party.players = result
 	party.computeAvgSkill()
-	player.party = nil
 }
 
 func (party *Party) isEmpty() bool {
