@@ -23,6 +23,7 @@ go run ./script/script.go
 4. Open a websockets connection (using for example Simple WebSocket Client : https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo) at ws://localhost:8080/ws
 5. Send a JSON message to the websocket connection with the following parameters:
 - name: Name of the player
+
 Example:
 ```json
 {
@@ -32,6 +33,7 @@ Example:
 6. Send an HTTP POST request to http://localhost:8080/enqueue with an the following parameters in the JSON body:
 - name: Name of the player
 - skill: An integer with the player's skill rating
+
 Example:
 ```json
 {
