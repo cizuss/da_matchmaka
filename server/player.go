@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Player is a struct for a player looking for a match
 type Player struct {
 	mux        sync.Mutex
 	name       string
@@ -19,8 +20,17 @@ type Player struct {
 	inProcess  bool
 }
 
+// NewPlayer returns an instance of a Player struct
 func NewPlayer(name string, skill int) Player {
 	return Player{name: name, skill: skill, timestamp: time.Now().Unix(), foundParty: false, delta: 2, party: nil, inParty: false, inProcess: false}
+}
+
+func (player *Player) lock() {
+	player.mux.Lock()
+}
+
+func (player *Player) unlock() {
+	player.mux.Unlock()
 }
 
 func (player *Player) findParty(parties []*Party) (*Party, error) {
@@ -36,7 +46,7 @@ func (player *Player) findParty(parties []*Party) (*Party, error) {
 func (player *Player) getGoodParties(parties []*Party) []*Party {
 	var goodParties []*Party
 	for _, party := range parties {
-		if isPartyGoodForPlayer(*player, party) {
+		if isPartyGoodForPlayer(player, party) {
 			goodParties = append(goodParties, party)
 		}
 	}
@@ -48,8 +58,8 @@ func findBestParty(parties []*Party) *Party {
 		return nil
 	}
 
-	var bestParty *Party = parties[0]
-	var maxLen int = len(bestParty.players)
+	bestParty := parties[0]
+	maxLen := len(bestParty.players)
 	for _, p := range parties {
 		if len(p.players) > maxLen {
 			maxLen = len(p.players)
@@ -68,7 +78,7 @@ func findBestParty(parties []*Party) *Party {
 	return bestParty
 }
 
-func isPartyGoodForPlayer(player Player, party *Party) bool {
+func isPartyGoodForPlayer(player *Player, party *Party) bool {
 	ps := player.skill
 	as := party.avgSkill
 	d := player.delta

@@ -1,6 +1,3 @@
-// In this example we'll look at how to implement
-// a _worker pool_ using goroutines and channels.
-
 package main
 
 import (
@@ -43,20 +40,22 @@ func matchWorker(jobs chan *Player, parties *[]*Party, partiesChan chan *Party) 
 }
 
 func addTimerToReenqueuePlayer(p *Player, jobs chan *Player) {
+	// spawn a timer that ticks after 3 seconds
 	timer := time.NewTimer(3 * time.Second)
 	go func() {
 		<-timer.C
-		p.mux.Lock()
+		// if player didn't find party, increase delta and push him back in the queue
+		p.lock()
 		if !p.foundParty {
 			p.party.removePlayer(p)
 			p.delta = p.delta * 2
 			p.party = nil
 			p.inParty = false
 			p.inProcess = false
-			p.mux.Unlock()
+			p.unlock()
 			jobs <- p
 		} else {
-			p.mux.Unlock()
+			p.unlock()
 		}
 	}()
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Party is a struct for a group of players searching for a match
 type Party struct {
 	mux       sync.Mutex
 	id        string
@@ -13,11 +14,17 @@ type Party struct {
 	createdAt int64
 }
 
-/*
-	NewParty returns a new Party instance
-*/
+//NewParty returns a new Party instance
 func NewParty() Party {
 	return Party{id: randSeq(10), players: []*Player{}, avgSkill: 0, createdAt: time.Now().Unix()}
+}
+
+func (party *Party) lock() {
+	party.mux.Lock()
+}
+
+func (party *Party) unlock() {
+	party.mux.Unlock()
 }
 
 func (party *Party) addPlayer(player *Player) {
@@ -25,24 +32,24 @@ func (party *Party) addPlayer(player *Player) {
 		return
 	}
 	// avoid case where concurrent threads find multiple parties for the same player
-	player.mux.Lock()
+	player.lock()
 	if player.inParty || player.foundParty {
-		player.mux.Unlock()
+		player.unlock()
 		return
 	}
 	player.party = party
 	player.inParty = true
-	player.mux.Unlock()
-	party.mux.Lock()
-	defer party.mux.Unlock()
+	player.unlock()
+	party.lock()
+	defer party.unlock()
 	party.players = append(party.players, player)
 	party.computeAvgSkill()
 }
 
 func (party *Party) removePlayer(player *Player) {
 	result := make([]*Player, 0)
-	party.mux.Lock()
-	defer party.mux.Unlock()
+	party.lock()
+	defer party.unlock()
 	for _, p := range party.players {
 		if p.name != player.name {
 			result = append(result, p)
@@ -69,9 +76,9 @@ func (party *Party) computeAvgSkill() {
 }
 
 func (party *Party) markAllPlayersAsHaveFoundParty() {
-	party.mux.Lock()
+	party.lock()
 	for _, p := range party.players {
 		p.foundParty = true
 	}
-	party.mux.Unlock()
+	party.unlock()
 }
